@@ -33,7 +33,7 @@ if ($ratio < 100) {
     $start_y = 100;
     $fontSize = 32;
 }
-imagefttext($im, $fontSize, 0, $start_x, $start_y, $color, '/usr/share/fonts/truetype/liberation2/LiberationMono-Regular.ttf', $ratioString);
+imagefttext($im, $fontSize, 0, $start_x, $start_y, $color, '/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf', $ratioString);
 imagepng($im, 'img/coverage-badge.png');
 
 if ($ratio < $threshold) {
