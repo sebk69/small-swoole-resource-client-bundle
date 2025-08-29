@@ -1,4 +1,10 @@
 <?php
+/*
+ * This file is a part of Small Swoole Resource Server
+ * Copyright 2025 - Sébastien Kus
+ * Under MIT Licence
+ */
+
 declare(strict_types=1);
 
 namespace Small\SwooleResourceClientBundle\Resource;
