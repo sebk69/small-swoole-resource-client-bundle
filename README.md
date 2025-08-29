@@ -1,5 +1,7 @@
 # Small Swoole Resource Client Bundle
 
+<img src="img/tests-badge.png" width="200px">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<img src="img/coverage-badge.png" width="200">
+
 A lightweight Symfony bundle that provides a typed client to interact with the
 [small-resource-server](https://github.com/sebk69/small-resource-server), using a Swoole-based HTTP client.
 
