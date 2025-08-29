@@ -1,0 +1,9 @@
+#!/bin/bash
+
+set -e
+
+
+cp tests/img/tests-badge-fail.png img/tests-badge.png
+vendor/bin/pest --coverage --coverage-xml coverage && \
+  cp tests/img/tests-badge-ok.png img/tests-badge.png
+bin/check-coverage 70 80

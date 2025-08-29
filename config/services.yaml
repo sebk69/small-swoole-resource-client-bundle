@@ -1,0 +1,27 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  # Charger uniquement le code App\ et exclure le bundle
+  App\:
+    resource: '../src/'
+    exclude:
+      - '../src/Kernel.php'
+      - '../src/Small/'  # ← exclut le bundle du scope App\
+
+  Tests\FakeClass\DummySwooleHttpClient: { public: true }
+
+  # (Optionnel) Autowire du bundle avec les bons namespaces
+  Small\SwooleResourceClientBundle\:
+    resource: '../src/Small/SwooleResourceClientBundle/'
+    exclude:
+      - '../src/Small/SwooleResourceClientBundle/DependencyInjection/'
+      - '../src/Small/SwooleResourceClientBundle/SmallSwooleResourceClientBundle.php'
+  small_swoole_resource_client.factory:
+    class: Small\SwooleResourceClientBundle\Resource\Factory
+    public: true
+    arguments:
+      $serverUri: '%small_swoole_resource_client.server_uri%'
+      $apiKey: '%small_swoole_resource_client.api_key%'
+      $httpClient: '@Tests\FakeClass\DummySwooleHttpClient'

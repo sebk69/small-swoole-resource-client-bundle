@@ -1,0 +1,17 @@
+services:
+  bundle:
+    container_name: small-swoole-resource-client-bundle
+    build: .
+    volumes:
+      - .:/usr/src/small-swoole-resource-client-bundle
+  server:
+    container_name: small-swoole-resource-client-server
+    image: smallphp/small-resource-server
+    volumes:
+      - ./small-swoole-resource-server.conf:/etc/small-swoole-resource-server.conf
+  database:
+    container_name: small-swoole-resource-client-server-db
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: secret
+    command: ["mysqld", "--mysql-native-password=FORCE"]

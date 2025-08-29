@@ -1,0 +1,3 @@
+small_swoole_resource_client:
+  server_uri: 'http://server.example:9501'
+  api_key: 'SECRET_KEY'

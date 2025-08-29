@@ -1,0 +1,50 @@
+{
+  "name": "small/swoole-resource-client-bundle",
+  "description": "Symfony bundle client for small-resource-server, using Swoole HttpClient.",
+  "type": "symfony-bundle",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Sébastien Kus",
+      "email": "sebastien.kus@gmail.com"
+    }
+  ],
+  "require": {
+    "php": ">=8.3",
+    "symfony/console": "7.2.*",
+    "symfony/dotenv": "7.2.*",
+    "symfony/flex": "^2",
+    "symfony/framework-bundle": "7.2.*",
+    "symfony/runtime": "7.2.*",
+    "symfony/yaml": "7.2.*",
+    "small/swoole-symfony-http-client": "^1.0"
+  },
+  "require-dev": {
+    "phpstan/phpstan": "*",
+    "pestphp/pest": "*"
+  },
+  "autoload": {
+    "psr-4": {
+      "Small\\": "src/Small/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Tests\\": "tests/",
+      "App\\": "app/"
+    }
+  },
+  "config": {
+    "allow-plugins": {
+      "pestphp/pest-plugin": true,
+      "symfony/flex": true,
+      "symfony/runtime": true
+    }
+  },
+  "scripts": {
+    "auto-scripts": {
+      "cache:clear": "symfony-cmd",
+      "assets:install %PUBLIC_DIR%": "symfony-cmd"
+    }
+  }
+}
