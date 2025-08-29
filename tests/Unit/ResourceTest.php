@@ -10,7 +10,7 @@ function makeResource(DummySwooleHttpClient $client, string $name = 'printer'): 
     return [new Resource($name, $http), $http];
 }
 
-test('getData returns array on 200 and captures x-ticket', function () {
+test('getData returns array on 200 and captures x-ticket', function (): void {
     $client = new DummySwooleHttpClient();
     $payload = json_encode(['ok' => true, 'n' => 1]);
     $client->addResponse(new Tests\FakeClass\DummyResponse(200, $payload, ['x-ticket' => 'abc123']));
@@ -28,7 +28,7 @@ test('getData returns array on 200 and captures x-ticket', function () {
         ->and($call['url'])->toBe('/resource/printer/queue')
         ->and($call['options']['query'])->toBe(['lock' => 0]);
 });
-test('getData returns null on 202 and stores ticket for later use', function () {
+test('getData returns null on 202 and stores ticket for later use', function (): void {
     $client = new DummySwooleHttpClient();
     $client->addResponse(new DummyResponse(202, '', ['x-ticket' => 'tk-202']));
 
@@ -39,7 +39,7 @@ test('getData returns null on 202 and stores ticket for later use', function () 
         ->and($resource->getTicket())->toBe('tk-202');
 });
 
-test('getData throws on non-200/202 with body for diagnostics', function () {
+test('getData throws on non-200/202 with body for diagnostics', function (): void {
     $client = new DummySwooleHttpClient();
     $client->addResponse(new DummyResponse(409, 'conflict body', []));
 
@@ -48,7 +48,7 @@ test('getData throws on non-200/202 with body for diagnostics', function () {
     expect($fn)->toThrow(RuntimeException::class);
 });
 
-test('lockData returns true when data arrives, false when pending', function () {
+test('lockData returns true when data arrives, false when pending', function (): void {
     $client = new DummySwooleHttpClient();
     $client->addResponse(new DummyResponse(202, '', ['x-ticket' => 't1']));
     $client->addResponse(new DummyResponse(200, json_encode(['v' => 42]), ['x-ticket' => 't1']));
@@ -58,7 +58,7 @@ test('lockData returns true when data arrives, false when pending', function () 
     expect($resource->lockData('queue'))->toBeTrue();
 });
 
-test('writeData sends PUT with x-ticket and succeeds on 204', function () {
+test('writeData sends PUT with x-ticket and succeeds on 204', function (): void {
     $client = new DummySwooleHttpClient();
     $client->addResponse(new DummyResponse(202, '', ['x-ticket' => 'lock-ticket']));
     $client->addResolver(function ($method, $url, $options) {
@@ -74,7 +74,7 @@ test('writeData sends PUT with x-ticket and succeeds on 204', function () {
     expect($ok)->toBeTrue();
 });
 
-test('writeData throws on non-204', function () {
+test('writeData throws on non-204', function (): void {
     $client = new DummySwooleHttpClient();
     $client->addResponse(new DummyResponse(202, '', ['x-ticket' => 'tkt']));
     $client->addResponse(new DummyResponse(400, 'bad request'));
@@ -85,7 +85,7 @@ test('writeData throws on non-204', function () {
     expect($fn)->toThrow(RuntimeException::class);
 });
 
-test('unlockData succeeds on 200 and uses ticket header if present', function () {
+test('unlockData succeeds on 200 and uses ticket header if present', function (): void {
     $client = new DummySwooleHttpClient();
     $client->addResponse(new DummyResponse(202, '', ['x-ticket' => 'unlock-ticket']));
     $client->addResolver(function ($method, $url, $options) {
@@ -100,7 +100,7 @@ test('unlockData succeeds on 200 and uses ticket header if present', function ()
     expect($resource->unlockData('queue'))->toBeTrue();
 });
 
-test('unlockData throws on non-200', function () {
+test('unlockData throws on non-200', function (): void {
     $client = new DummySwooleHttpClient();
     $client->addResponse(new DummyResponse(202, '', ['x-ticket' => 'unlock-ticket']));
     $client->addResponse(new DummyResponse(404, 'not found'));

@@ -6,7 +6,7 @@ use Small\SwooleResourceClientBundle\Resource\Resource;
 use Tests\FakeClass\DummySwooleHttpClient;
 use Tests\FakeClass\DummyResponse;
 
-beforeEach(function () {
+beforeEach(function (): void {
     // Reset the registry between tests
     DummySwooleHttpClient::$instances = [];
 });
@@ -19,7 +19,7 @@ function lastClient(): \Tests\FakeClass\DummySwooleHttpClient {
     return \Tests\FakeClass\DummySwooleHttpClient::$instances[$idx];
 }
 
-test('Factory configures HttpClient with base_uri and x-api-key', function () {
+test('Factory configures HttpClient with base_uri and x-api-key', function (): void {
     // Given
     $factory = new Factory('http://localhost:9501', 'KEY'); // builds real client
 
@@ -42,7 +42,7 @@ test('Factory configures HttpClient with base_uri and x-api-key', function () {
         ->and($call['options']['json'])->toBe(['name' => 'printer', 'timeout' => 300]);
 });
 
-test('createResource POSTs /resource with name and timeout, returns Resource on 201', function () {
+test('createResource POSTs /resource with name and timeout, returns Resource on 201', function (): void {
     // Given
     $factory = new Factory('http://localhost:9501', 'KEY'); // builds real client
 
@@ -76,7 +76,7 @@ test('createResource POSTs /resource with name and timeout, returns Resource on 
         ->and($call['options']['json'])->toBe(['name' => 'printer', 'timeout' => 300]);
 });
 
-test('createResource throws with diagnostic message when server returns non-201', function () {
+test('createResource throws with diagnostic message when server returns non-201', function (): void {
     // Given
     $factory = new Factory('http://localhost:9501', 'KEY'); // builds real client
 
@@ -102,7 +102,7 @@ test('createResource throws with diagnostic message when server returns non-201'
     // Optional: you can also inspect the first recorded call like above if you want
 });
 
-test('getResource returns Resource without making any HTTP call', function () {
+test('getResource returns Resource without making any HTTP call', function (): void {
     // Given
     $factory = new Factory('http://localhost:9501', 'KEY'); // builds real client
 

@@ -21,7 +21,7 @@ function factoryHttpClient(Factory $factory): DummySwooleHttpClient {
     return $http;
 }
 
-test('factory service is available from the kernel container', function () {
+test('factory service is available from the kernel container', function (): void {
     /** @var Factory $factory */
     $factory = container()->get('small_swoole_resource_client.factory');
 
@@ -35,7 +35,7 @@ test('factory service is available from the kernel container', function () {
         ->and($http->options['timeout']              ?? null)->toBe(10);
 });
 
-test('createResource posts /resource and returns a Resource on 201', function () {
+test('createResource posts /resource and returns a Resource on 201', function (): void {
     /** @var Factory $factory */
     $factory = container()->get('small_swoole_resource_client.factory');
     $http    = factoryHttpClient($factory);
@@ -55,7 +55,7 @@ test('createResource posts /resource and returns a Resource on 201', function ()
         ->and($call['options']['json'])->toBe(['name' => 'printer', 'timeout' => 300]);
 });
 
-test('createResource throws on non-201 and exposes body for diagnostics', function () {
+test('createResource throws on non-201 and exposes body for diagnostics', function (): void {
     /** @var Factory $factory */
     $factory = container()->get('small_swoole_resource_client.factory');
     $http    = factoryHttpClient($factory);
@@ -67,7 +67,7 @@ test('createResource throws on non-201 and exposes body for diagnostics', functi
         ->toThrow(RuntimeException::class);
 });
 
-test('getResource returns a Resource without performing any HTTP call', function () {
+test('getResource returns a Resource without performing any HTTP call', function (): void {
     /** @var Factory $factory */
     $factory = container()->get('small_swoole_resource_client.factory');
     $http    = factoryHttpClient($factory);
