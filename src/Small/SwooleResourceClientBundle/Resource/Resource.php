@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Small\SwooleResourceClientBundle\Resource;
 
+use Small\SwooleResourceClientBundle\Exception\BadFormatException;
+use Small\SwooleResourceClientBundle\Exception\ServerUnavailableException;
 use Small\SwooleSymfonyHttpClient\SwooleHttpClient;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use RuntimeException;
@@ -53,7 +55,7 @@ final class Resource
                 'headers' => $headers,
             ]);
         } catch (TransportExceptionInterface $e) {
-            throw new RuntimeException('Failed to contact resource server: ' . $e->getMessage(), previous: $e);
+            throw new ServerUnavailableException('Failed to contact resource server: ' . $e->getMessage(), previous: $e);
         }
 
         // capture/refresh ticket if any
@@ -71,14 +73,12 @@ final class Resource
             $content = $response->getContent(false);
             $decoded = json_decode($content, true);
             if (json_last_error() !== JSON_ERROR_NONE) {
-                throw new RuntimeException('Invalid JSON returned by resource server: ' . json_last_error_msg());
+                throw new BadFormatException('Invalid JSON returned by resource server: ' . json_last_error_msg());
             }
             return $decoded;
         }
 
         if ($status === 202) {
-            // not available yet, caller may choose to retry later using stored ticket
-            return null;
         }
 
         // Other status codes → bubble up a clear error with body for debugging
@@ -105,8 +105,9 @@ final class Resource
      * Update resource selector content with raw JSON (string).
      * Requires that a ticket has been obtained via getData(lock=true) previously.
      */
-    public function writeData(string $selector, string $json): bool
+    public function writeData(string $selector, mixed $data): bool
     {
+        $json = json_encode($data, JSON_THROW_ON_ERROR);
         $headers = ['content-type' => 'application/json'];
         if ($this->ticket) {
             $headers['x-ticket'] = $this->ticket;
@@ -118,13 +119,13 @@ final class Resource
                 'body' => $json,
             ]);
         } catch (TransportExceptionInterface $e) {
-            throw new RuntimeException('Failed to contact resource server: ' . $e->getMessage(), previous: $e);
+            throw new ServerUnavailableException('Failed to contact resource server: ' . $e->getMessage(), previous: $e);
         }
 
         if ($response->getStatusCode() !== 204) {
             $body = '';
             try { $body = $response->getContent(false); } catch (\Throwable) {}
-            throw new RuntimeException(sprintf(
+            throw new NotUpdatedException(sprintf(
                 'writeData failed for "%s" (HTTP %d): %s',
                 $selector,
                 $response->getStatusCode(),

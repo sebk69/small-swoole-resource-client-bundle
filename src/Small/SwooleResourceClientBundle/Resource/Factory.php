@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace Small\SwooleResourceClientBundle\Resource;
 
 use RuntimeException;
+use Small\SwooleResourceClientBundle\Contract\ResourceFactoryInterface;
+use Small\SwooleResourceClientBundle\Exception\ServerUnavailableException;
 use Small\SwooleSymfonyHttpClient\SwooleHttpClient;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -19,7 +21,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  *
  * Requires package: small/swoole-symfony-http-client
  */
-final class Factory
+final class Factory implements ResourceFactoryInterface
 {
     private HttpClientInterface $httpClient;
 
@@ -53,7 +55,7 @@ final class Factory
                 'json' => ['name' => $name, 'timeout' => $timeout],
             ]);
         } catch (TransportExceptionInterface $e) {
-            throw new RuntimeException('Failed to contact resource server: '.$e->getMessage(), previous: $e);
+            throw new ServerUnavailableException('Failed to contact resource server: '.$e->getMessage(), previous: $e);
         }
 
         if ($response->getStatusCode() !== 201) {
