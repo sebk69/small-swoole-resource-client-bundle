@@ -97,7 +97,7 @@ test('createResource throws with diagnostic message when server returns non-201'
 
     // When / Then
     $fn = fn() => $factory->createResource('printer', 300);
-    expect($fn)->toThrow(RuntimeException::class);
+    expect($fn)->toThrow(\Small\SwooleResourceClientBundle\Exception\UnknownErrorException::class);
 
     // Optional: you can also inspect the first recorded call like above if you want
 });

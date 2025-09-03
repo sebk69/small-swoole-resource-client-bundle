@@ -35,7 +35,7 @@ final class DummyResponse implements ResponseInterface
     {
         $out = [];
         foreach ($this->headers as $k => $v) {
-            $key = strtolower($k);
+            $key = $k;
             $out[$key] = is_array($v) ? array_values($v) : [$v];
         }
         return $out;

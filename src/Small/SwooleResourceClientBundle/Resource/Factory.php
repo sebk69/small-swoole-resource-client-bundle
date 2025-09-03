@@ -62,6 +62,7 @@ final class Factory implements ResourceFactoryInterface
             ]);
         } catch (TransportExceptionInterface $e) {
             throw new ServerUnavailableException('Failed to contact resource server: '.$e->getMessage(), previous: $e);
+        /** @phpstan-ignore-next-line  */
         } catch (BadRequestException $e) {
             switch ($e->getResponse()->getStatusCode()) {
                 case 409:

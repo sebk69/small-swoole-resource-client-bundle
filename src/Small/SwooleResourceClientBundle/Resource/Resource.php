@@ -74,15 +74,15 @@ final class Resource
                 'headers' => $headers,
             ]);
         } catch (TransportExceptionInterface $e) {
-            dump($e);
             throw new ServerUnavailableException('Failed to contact resource server: ' . $e->getMessage(), previous: $e);
         } catch (ClientException $e) {
-            dump($e);
             throw new NotFoundException('Selector not found (' . $selector . ') for resource ' . $this->name, previous: $e);
         } catch (BadRequestException $e) {
             switch ($e->getResponse()->getStatusCode()) {
                 case 404:
                     throw new NotFoundException('Resource selector for resource ' . $this->name . '(' . $selector . ')', previous: $e);
+                default:
+                    throw new UnknownErrorException('Unknown error', previous: $e);
             }
         }
         
@@ -92,9 +92,7 @@ final class Resource
             if (isset($respHeaders['X-Ticket'][0])) {
                 $this->ticket = $respHeaders['X-Ticket'][0];
             }
-        } catch (\Throwable) {
-            dump($respHeaders);
-        }
+        } catch (\Throwable) {}
 
         $status = $response->getStatusCode();
         if (in_array($status, [200])) {
@@ -108,6 +106,15 @@ final class Resource
             if (json_last_error() !== JSON_ERROR_NONE) {
                 throw new BadFormatException('Invalid JSON returned by resource server: ' . json_last_error_msg());
             }
+
+            if (!is_array($decoded) || !array_key_exists('data', $decoded)) {
+                throw new BadFormatException('Invalid JSON returned by resource server missing data entry');
+            }
+
+            if (!is_string($decoded['data'])) {
+                throw new BadFormatException('Invalid JSON returned by resource server data must be json');
+            }
+
             $data = json_decode($decoded['data'], true);
             if (json_last_error() !== JSON_ERROR_NONE) {
                 throw new BadFormatException('Invalid JSON data: ' . json_last_error_msg());
@@ -152,7 +159,6 @@ final class Resource
         } catch (ClientException $e) {
             throw new NotFoundException('Selector not found (' . $selector . ') for resource ' . $this->name, previous: $e);
         } catch (BadRequestException $e) {
-            dump($e);
             throw $e;
         }
 
@@ -171,7 +177,11 @@ final class Resource
 
             $result = json_decode($response->getContent(false), true);
 
-            return $result['locked'] ?? false;
+            if (!is_array($result) || !array_key_exists('locked', $result) || !is_bool($result['locked'])) {
+                throw new UnknownErrorException('Bad response body');
+            }
+
+            return $result['locked'];
         }
 
         return false;
@@ -197,12 +207,6 @@ final class Resource
             ]);
         } catch (TransportExceptionInterface $e) {
             throw new ServerUnavailableException('Failed to contact resource server: ' . $e->getMessage(), previous: $e);
-        } catch (ServerException $e) {
-            var_dump($e->getResponse());
-            exit;
-        } catch (BadRequestException $e) {
-            var_dump($e->getRequest());
-            throw $e;
         }
 
         if (!in_array($response->getStatusCode(),  [200, 204])) {
@@ -235,10 +239,9 @@ final class Resource
                 'headers' => $headers,
             ]);
         } catch (TransportExceptionInterface $e) {
-            throw new ServerException('Failed to contact resource server: ' . $e->getMessage(), previous: $e);
+            throw new ServerUnavailableException('Failed to contact resource server: ' . $e->getMessage(), previous: $e);
         } catch (BadRequestException $e) {
-            var_dump($e->getRequest());
-            throw $e;
+            throw new UnknownErrorException('Unexpected error: ' . $e->getMessage(), previous: $e);
         }
 
 
@@ -255,6 +258,7 @@ final class Resource
             $status,
             $body
         ));
+
     }
 
     /**

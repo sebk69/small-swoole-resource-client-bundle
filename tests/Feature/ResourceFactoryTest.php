@@ -32,7 +32,7 @@ test('factory service is available from the kernel container', function (): void
     expect($http->options['base_uri']        ?? null)->toBe('http://server.example:9501')
         ->and($http->options['headers']['x-api-key'] ?? null)->toBe('SECRET_KEY')
         ->and($http->options['headers']['accept']    ?? null)->toBe('application/json')
-        ->and($http->options['timeout']              ?? null)->toBe(10);
+        ->and($http->options['timeout']              ?? null)->toBe(60);
 });
 
 test('createResource posts /resource and returns a Resource on 201', function (): void {
@@ -64,7 +64,7 @@ test('createResource throws on non-201 and exposes body for diagnostics', functi
     $http->addResponse(new DummyResponse(409, 'conflict'));
 
     expect(fn() => $factory->createResource('printer', 300))
-        ->toThrow(RuntimeException::class);
+        ->toThrow(\Small\SwooleResourceClientBundle\Exception\UnknownErrorException::class);
 });
 
 test('getResource returns a Resource without performing any HTTP call', function (): void {
