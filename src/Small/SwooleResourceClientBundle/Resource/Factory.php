@@ -11,7 +11,13 @@ namespace Small\SwooleResourceClientBundle\Resource;
 
 use RuntimeException;
 use Small\SwooleResourceClientBundle\Contract\ResourceFactoryInterface;
+use Small\SwooleResourceClientBundle\Exception\AlreadyExistsException;
 use Small\SwooleResourceClientBundle\Exception\ServerUnavailableException;
+use Small\SwooleResourceClientBundle\Exception\UnauthorizedException;
+use Small\SwooleResourceClientBundle\Exception\UnknownErrorException;
+use Small\SwooleSymfonyHttpClient\Exception\BadRequestException;
+use Small\SwooleSymfonyHttpClient\Exception\ClientException;
+use Small\SwooleSymfonyHttpClient\Exception\ServerException;
 use Small\SwooleSymfonyHttpClient\SwooleHttpClient;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -39,7 +45,7 @@ final class Factory implements ResourceFactoryInterface
                 'accept'    => 'application/json',
                 'x-api-key' => $this->apiKey,
             ],
-            'timeout'  => 10,
+            'timeout'  => 60,
         ]);
     }
 
@@ -56,19 +62,28 @@ final class Factory implements ResourceFactoryInterface
             ]);
         } catch (TransportExceptionInterface $e) {
             throw new ServerUnavailableException('Failed to contact resource server: '.$e->getMessage(), previous: $e);
+        } catch (BadRequestException $e) {
+            switch ($e->getResponse()->getStatusCode()) {
+                case 409:
+                    throw new AlreadyExistsException('Resource already exists', previous: $e);
+                case 401:
+                    throw new UnauthorizedException('Forbidden', previous: $e);
+                default:
+                    throw new UnknownErrorException('Unknown error (' . $e->getResponse()->getStatusCode() . ')', previous: $e);
+            }
         }
 
-        if ($response->getStatusCode() !== 201) {
+        if (!in_array($response->getStatusCode(), [200, 201])) {
             $body = '';
             try { $body = $response->getContent(false); } catch (\Throwable) {}
-            throw new RuntimeException(sprintf(
+            throw new UnknownErrorException(sprintf(
                 'Resource creation failed (HTTP %d): %s',
                 $response->getStatusCode(),
                 $body
             ));
         }
 
-        return new Resource($name, $this->httpClient);
+        return new Resource($name, $this->apiKey, $this->httpClient);
     }
 
     /**
@@ -76,6 +91,6 @@ final class Factory implements ResourceFactoryInterface
      */
     public function getResource(string $name): Resource
     {
-        return new Resource($name, $this->httpClient);
+        return new Resource($name, $this->apiKey, $this->httpClient);
     }
 }

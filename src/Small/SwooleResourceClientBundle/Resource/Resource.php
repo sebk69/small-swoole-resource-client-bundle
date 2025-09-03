@@ -10,10 +10,16 @@ declare(strict_types=1);
 namespace Small\SwooleResourceClientBundle\Resource;
 
 use Small\SwooleResourceClientBundle\Exception\BadFormatException;
+use Small\SwooleResourceClientBundle\Exception\NotFoundException;
+use Small\SwooleResourceClientBundle\Exception\NotUpdatedException;
 use Small\SwooleResourceClientBundle\Exception\ServerUnavailableException;
+use Small\SwooleResourceClientBundle\Exception\EmptyDataException;
+use Small\SwooleResourceClientBundle\Exception\UnknownErrorException;
+use Small\SwooleSymfonyHttpClient\Exception\BadRequestException;
+use Small\SwooleSymfonyHttpClient\Exception\ClientException;
+use Small\SwooleSymfonyHttpClient\Exception\ServerException;
 use Small\SwooleSymfonyHttpClient\SwooleHttpClient;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
-use RuntimeException;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
@@ -22,8 +28,8 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * Server API (from small-resource-server README):
  *   POST   /resource                                  (x-api-key with WRITE)     -> create
  *   GET    /resource/{name}/{selector}?lock=1|0       (READ/LOCK)                -> read (and optional lock)
- *   PUT    /resource/{name}/{selector}                (WRITE + x-ticket)         -> update data
- *   POST   /resource/{name}/{selector}/unlock         (READ/LOCK + x-ticket)     -> unlock
+ *   PUT    /resource/{name}/{selector}                (WRITE + X-Ticket)         -> update data
+ *   POST   /resource/{name}/{selector}/unlock         (READ/LOCK + X-Ticket)     -> unlock
  */
 final class Resource
 {
@@ -31,6 +37,7 @@ final class Resource
 
     public function __construct(
         private readonly string $name,
+        private readonly string $apiKey,
         private readonly HttpClientInterface $httpClient,
     ) {
     }
@@ -39,15 +46,27 @@ final class Resource
      * Fetch data for a selector.
      * If $lock = true, will attempt to acquire/keep lock; server may respond 202 with a ticket.
      *
-     * @return mixed Returns decoded JSON array on 200, null on 202 (unavailable).
-     * @throws RuntimeException on 4xx/5xx other than 404/401/403 where details are useful.
+     * @param string $selector
+     * @param bool $lock
+     * @return mixed
+     * @throws BadFormatException
+     * @throws BadRequestException
+     * @throws EmptyDataException
+     * @throws NotFoundException
+     * @throws ServerUnavailableException
+     * @throws TransportExceptionInterface
+     * @throws \Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface
+     * @throws \Symfony\Contracts\HttpClient\Exception\RedirectionExceptionInterface
+     * @throws \Symfony\Contracts\HttpClient\Exception\ServerExceptionInterface
      */
     public function getData(string $selector, bool $lock): mixed
     {
+
         $headers = [];
         if ($this->ticket) {
-            $headers['x-ticket'] = $this->ticket;
+            $headers['X-Ticket'] = $this->ticket;
         }
+        $headers['x-api-key'] = $this->apiKey;
 
         try {
             $response = $this->httpClient->request('GET', sprintf('/resource/%s/%s', rawurlencode($this->name), rawurlencode($selector)), [
@@ -55,36 +74,56 @@ final class Resource
                 'headers' => $headers,
             ]);
         } catch (TransportExceptionInterface $e) {
+            dump($e);
             throw new ServerUnavailableException('Failed to contact resource server: ' . $e->getMessage(), previous: $e);
+        } catch (ClientException $e) {
+            dump($e);
+            throw new NotFoundException('Selector not found (' . $selector . ') for resource ' . $this->name, previous: $e);
+        } catch (BadRequestException $e) {
+            switch ($e->getResponse()->getStatusCode()) {
+                case 404:
+                    throw new NotFoundException('Resource selector for resource ' . $this->name . '(' . $selector . ')', previous: $e);
+            }
         }
-
+        
         // capture/refresh ticket if any
         try {
             $respHeaders = $response->getHeaders(false);
-            if (isset($respHeaders['x-ticket'][0])) {
-                $this->ticket = $respHeaders['x-ticket'][0];
+            if (isset($respHeaders['X-Ticket'][0])) {
+                $this->ticket = $respHeaders['X-Ticket'][0];
             }
         } catch (\Throwable) {
-            // ignore header parsing errors
+            dump($respHeaders);
         }
 
         $status = $response->getStatusCode();
-        if ($status === 200) {
+        if (in_array($status, [200])) {
             $content = $response->getContent(false);
+
+            if (empty($content)) {
+                return null;
+            }
+
             $decoded = json_decode($content, true);
             if (json_last_error() !== JSON_ERROR_NONE) {
                 throw new BadFormatException('Invalid JSON returned by resource server: ' . json_last_error_msg());
             }
-            return $decoded;
+            $data = json_decode($decoded['data'], true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new BadFormatException('Invalid JSON data: ' . json_last_error_msg());
+            }
+
+            return $data;
         }
 
         if ($status === 202) {
+            throw new EmptyDataException('A waiting ticket have been returned');
         }
 
         // Other status codes → bubble up a clear error with body for debugging
         $body = '';
         try { $body = $response->getContent(false); } catch (\Throwable) {}
-        throw new RuntimeException(sprintf(
+        throw new UnknownErrorException(sprintf(
             'getData failed for "%s" (HTTP %d): %s',
             $selector,
             $status,
@@ -98,7 +137,44 @@ final class Resource
      */
     public function lockData(string $selector): bool
     {
-        return $this->getData($selector, true) !== null;
+        $headers = [];
+        if ($this->ticket) {
+            $headers['X-Ticket'] = $this->ticket;
+        }
+        $headers['x-api-key'] = $this->apiKey;
+        
+        try {
+            $response = $this->httpClient->request('PUT', sprintf('/resource/%s/%s/lock', rawurlencode($this->name), rawurlencode($selector)), [
+                'headers' => $headers,
+            ]);
+        } catch (TransportExceptionInterface $e) {
+            throw new ServerUnavailableException('Failed to contact resource server: ' . $e->getMessage(), previous: $e);
+        } catch (ClientException $e) {
+            throw new NotFoundException('Selector not found (' . $selector . ') for resource ' . $this->name, previous: $e);
+        } catch (BadRequestException $e) {
+            dump($e);
+            throw $e;
+        }
+
+        // capture/refresh ticket if any
+        try {
+            $respHeaders = $response->getHeaders(false);
+            if (isset($respHeaders['X-Ticket'][0])) {
+                $this->ticket = $respHeaders['X-Ticket'][0];
+            }
+        } catch (\Throwable) {
+            // ignore header parsing errors
+        }
+
+        $status = $response->getStatusCode();
+        if (in_array($status, [200])) {
+
+            $result = json_decode($response->getContent(false), true);
+
+            return $result['locked'] ?? false;
+        }
+
+        return false;
     }
 
     /**
@@ -110,8 +186,9 @@ final class Resource
         $json = json_encode($data, JSON_THROW_ON_ERROR);
         $headers = ['content-type' => 'application/json'];
         if ($this->ticket) {
-            $headers['x-ticket'] = $this->ticket;
+            $headers['X-Ticket'] = $this->ticket;
         }
+        $headers['x-api-key'] = $this->apiKey;
 
         try {
             $response = $this->httpClient->request('PUT', sprintf('/resource/%s/%s', rawurlencode($this->name), rawurlencode($selector)), [
@@ -120,9 +197,15 @@ final class Resource
             ]);
         } catch (TransportExceptionInterface $e) {
             throw new ServerUnavailableException('Failed to contact resource server: ' . $e->getMessage(), previous: $e);
+        } catch (ServerException $e) {
+            var_dump($e->getResponse());
+            exit;
+        } catch (BadRequestException $e) {
+            var_dump($e->getRequest());
+            throw $e;
         }
 
-        if ($response->getStatusCode() !== 204) {
+        if (!in_array($response->getStatusCode(),  [200, 204])) {
             $body = '';
             try { $body = $response->getContent(false); } catch (\Throwable) {}
             throw new NotUpdatedException(sprintf(
@@ -143,16 +226,21 @@ final class Resource
     {
         $headers = [];
         if ($this->ticket) {
-            $headers['x-ticket'] = $this->ticket;
+            $headers['X-Ticket'] = $this->ticket;
+            $headers['x-api-key'] = $this->apiKey;
         }
 
         try {
-            $response = $this->httpClient->request('POST', sprintf('/resource/%s/%s/unlock', rawurlencode($this->name), rawurlencode($selector)), [
+            $response = $this->httpClient->request('PUT', sprintf('/resource/%s/%s/unlock', rawurlencode($this->name), rawurlencode($selector)), [
                 'headers' => $headers,
             ]);
         } catch (TransportExceptionInterface $e) {
-            throw new RuntimeException('Failed to contact resource server: ' . $e->getMessage(), previous: $e);
+            throw new ServerException('Failed to contact resource server: ' . $e->getMessage(), previous: $e);
+        } catch (BadRequestException $e) {
+            var_dump($e->getRequest());
+            throw $e;
         }
+
 
         $status = $response->getStatusCode();
         if ($status === 200) {
@@ -161,7 +249,7 @@ final class Resource
 
         $body = '';
         try { $body = $response->getContent(false); } catch (\Throwable) {}
-        throw new RuntimeException(sprintf(
+        throw new UnknownErrorException(sprintf(
             'unlockData failed for "%s" (HTTP %d): %s',
             $selector,
             $status,
